@@ -144,4 +144,4 @@ Then, provide a detailed analysis focusing on:
 
 Structure your output clearly, addressing each of these points for the given trend.
 Start your response with "Detailed Analysis for Trend: [The Trend Topic]"
-""" 
+"""
