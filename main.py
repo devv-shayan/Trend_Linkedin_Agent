@@ -23,16 +23,32 @@ def run_trend_to_post_pipeline():
     print(f"TrendSpotter Output:\n{trend_spotter_result.final_output}")
     potential_trends_str = trend_spotter_result.final_output
     
-    print("\n--- Step 2: Trend Refinement & Analysis ---")
-    trend_refiner_agent = agent.create_trend_refiner_agent(potential_trends_str)
-    trend_refiner_result = Runner.run_sync(starting_agent=trend_refiner_agent, input="Select the most promising trend and provide a detailed analysis.")
+    print("\n--- Step 2a: Trend Selection ---")
+    trend_selector_agent = agent.create_trend_selector_agent(potential_trends_str)
+    trend_selector_result = Runner.run_sync(starting_agent=trend_selector_agent, input="Select the most promising trend.")
+
+    if not trend_selector_result or not trend_selector_result.final_output:
+        print("TrendSelectorAgent failed to return output. Exiting.")
+        return
     
-    if not trend_refiner_result or not trend_refiner_result.final_output:
-        print("TrendRefinerAgent failed to return output. Exiting.")
+    selected_trend = trend_selector_result.final_output.strip() # Ensure no leading/trailing whitespace
+    print(f"TrendSelector Output (Selected Trend):\n{selected_trend}")
+
+    print("\n--- Step 2b: Trend Analysis ---")
+    # Ensure selected_trend is not empty before proceeding
+    if not selected_trend:
+        print("No trend was selected by TrendSelectorAgent. Exiting.")
         return
 
-    detailed_analysis = trend_refiner_result.final_output
-    print(f"TrendRefiner Output (Detailed Analysis):\n{detailed_analysis}")
+    trend_analyzer_agent = agent.create_trend_analyzer_agent(selected_trend)
+    trend_analyzer_result = Runner.run_sync(starting_agent=trend_analyzer_agent, input=f"Provide a detailed analysis for the trend: {selected_trend}")
+    
+    if not trend_analyzer_result or not trend_analyzer_result.final_output:
+        print("TrendAnalyzerAgent failed to return output. Exiting.")
+        return
+
+    detailed_analysis = trend_analyzer_result.final_output
+    print(f"TrendAnalyzer Output (Detailed Analysis):\n{detailed_analysis}")
 
     print("\n--- Step 3: Formulating User Questions ---")
     question_asker_agent = agent.create_question_asker_agent(detailed_analysis)
@@ -112,9 +128,9 @@ if __name__ == "__main__":
     #    set OPENAI_API_KEY=sk-... (Windows CMD)
     #    $env:OPENAI_API_KEY="sk-..." (Windows PowerShell)
     
-    # Note: A functional web_search_tool is required for TrendSpotterAgent.
-    # This is now referenced in agents_def.py. You'd need to implement
-    # or integrate such a tool for the first step to work effectively.
+    # Note: A functional web_search_tool is required for TrendSpotterAgent and TrendAnalyzerAgent.
+    # This is now referenced in agent.py. You'd need to implement
+    # or integrate such a tool for these steps to work effectively.
     set_trace_processors([OpenAIAgentsTracingProcessor()])
     # Wrap all agent runs under a single root trace
     with trace("Trend to LinkedIn Post Pipeline"):

@@ -12,8 +12,11 @@ load_dotenv(find_dotenv())
 def get_trend_spotter_instructions(date: str, niche: str) -> str:
     return prompts.FIRST_PROMPT_TEMPLATE.format(date=date, niche=niche)
 
-def get_trend_refiner_instructions(trend_list_str: str) -> str:
-    return prompts.TREND_REFINER_PROMPT_SELECTOR_TEMPLATE.format(trend_list_str=trend_list_str)
+def get_trend_selector_instructions(trend_list_str: str) -> str:
+    return prompts.TREND_SELECTOR_PROMPT_TEMPLATE.format(trend_list_str=trend_list_str)
+
+def get_trend_analyzer_instructions(selected_trend_topic: str) -> str:
+    return prompts.TREND_ANALYZER_PROMPT_TEMPLATE.format(selected_trend_topic=selected_trend_topic)
 
 def get_question_asker_instructions(trend_analysis: str) -> str:
     return prompts.USER_QUESTIONS_PROMPT_TEMPLATE.format(trend_analysis=trend_analysis)
@@ -58,12 +61,20 @@ def create_trend_spotter_agent(date: str, niche: str) -> Agent:
         tools=[search]
     )
 
-def create_trend_refiner_agent(potential_trends_str: str) -> Agent:
+def create_trend_selector_agent(trend_list_str: str) -> Agent:
     return Agent(
-        name="TrendRefiner",
+        name="TrendSelector",
         model=model,
-        instructions=get_trend_refiner_instructions(potential_trends_str)
+        instructions=get_trend_selector_instructions(trend_list_str)
     )
+
+def create_trend_analyzer_agent(selected_trend_topic: str) -> Agent:
+    return Agent(
+        name="TrendAnalyzer",
+        model=model,
+        instructions=get_trend_analyzer_instructions(selected_trend_topic),
+        tools=[search] 
+    ) 
 
 def create_question_asker_agent(detailed_analysis: str) -> Agent:
     return Agent(
@@ -84,4 +95,5 @@ def create_linkedin_post_generator_agent(brief: str) -> Agent:
         name="LinkedInPostGenerator",
         model=model,    
         instructions=get_linkedin_post_generator_instructions(brief)
-    ) 
+    )
+
