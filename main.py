@@ -1,5 +1,19 @@
 from agents import Runner, set_trace_processors, trace
-import agent
+# Import agent objects directly
+from agent import (
+    trend_spotter_agent,
+    trend_selector_agent,
+    trend_analyzer_agent,
+    question_asker_agent,
+    brief_writer_agent,
+    linkedin_post_generator_agent,
+    get_trend_spotter_instructions, # Keep for now, or format directly
+    get_trend_selector_instructions,
+    get_trend_analyzer_instructions,
+    get_question_asker_instructions,
+    get_brief_writer_instructions,
+    get_linkedin_post_generator_instructions,
+)
 from langsmith.wrappers import OpenAIAgentsTracingProcessor
 
 
@@ -17,11 +31,11 @@ def run_trend_to_post_pipeline():
     current_date, niche = _get_initial_user_inputs()
 
     print("\n--- Step 1: Trend Spotting ---")
-    trend_spotter_agent = agent.create_trend_spotter_agent(current_date, niche)
-    # The input string for run_sync can be a general instruction if the main task is in agent.instructions
+    # Format instructions at runtime
+    trend_spotter_agent.instructions = get_trend_spotter_instructions(current_date, niche)
     trend_spotter_result = Runner.run_sync(
         starting_agent=trend_spotter_agent,
-        input="Identify current trends based on your instructions.",
+        input="Identify current trends based on your instructions.", # Input can be minimal if instructions are comprehensive
     )
 
     if not trend_spotter_result or not trend_spotter_result.final_output:
@@ -32,9 +46,9 @@ def run_trend_to_post_pipeline():
     potential_trends_str = trend_spotter_result.final_output
 
     print("\n--- Step 2a: Trend Selection ---")
-    trend_selector_agent = agent.create_trend_selector_agent(potential_trends_str)
+    trend_selector_agent.instructions = get_trend_selector_instructions(potential_trends_str)
     trend_selector_result = Runner.run_sync(
-        starting_agent=trend_selector_agent, input="Select the most promising trend."
+        starting_agent=trend_selector_agent, input="Select the most promising trend based on the provided list."
     )
 
     if not trend_selector_result or not trend_selector_result.final_output:
@@ -43,19 +57,18 @@ def run_trend_to_post_pipeline():
 
     selected_trend = (
         trend_selector_result.final_output.strip()
-    )  # Ensure no leading/trailing whitespace
+    )
     print(f"TrendSelector Output (Selected Trend):\n{selected_trend}")
 
     print("\n--- Step 2b: Trend Analysis ---")
-    # Ensure selected_trend is not empty before proceeding
     if not selected_trend:
         print("No trend was selected by TrendSelectorAgent. Exiting.")
         return
 
-    trend_analyzer_agent = agent.create_trend_analyzer_agent(selected_trend)
+    trend_analyzer_agent.instructions = get_trend_analyzer_instructions(selected_trend)
     trend_analyzer_result = Runner.run_sync(
         starting_agent=trend_analyzer_agent,
-        input=f"Provide a detailed analysis for the trend: {selected_trend}",
+        input=f"Provide a detailed analysis for the trend: {selected_trend}", # Input can reiterate if needed
     )
 
     if not trend_analyzer_result or not trend_analyzer_result.final_output:
@@ -66,10 +79,10 @@ def run_trend_to_post_pipeline():
     print(f"TrendAnalyzer Output (Detailed Analysis):\n{detailed_analysis}")
 
     print("\n--- Step 3: Formulating User Questions ---")
-    question_asker_agent = agent.create_question_asker_agent(detailed_analysis)
+    question_asker_agent.instructions = get_question_asker_instructions(detailed_analysis)
     question_asker_result = Runner.run_sync(
         starting_agent=question_asker_agent,
-        input="Present the analysis and formulate questions for the user.",
+        input="Present the analysis and formulate questions for the user based on your instructions.",
     )
 
     if not question_asker_result or not question_asker_result.final_output:
@@ -86,7 +99,6 @@ def run_trend_to_post_pipeline():
         "4": "How can this post play on a psychological effect from 'Made to Stick'?",
     }
 
-    # Allow the user to select one or more questions by number (e.g., '1,3')
     valid_choices = set(questions_map.keys())
     selected_nums = []
     while not selected_nums:
@@ -100,7 +112,7 @@ def run_trend_to_post_pipeline():
                 "Invalid selection. Please choose one or more numbers between 1 and 4, separated by commas (e.g., '1,3')."
             )
             selected_nums = []
-    # Prompt user for each selected question
+
     user_answers_map = {}
     print("\nPlease provide your answers to the selected questions one by one.")
     for i, num in enumerate(selected_nums):
@@ -112,19 +124,18 @@ def run_trend_to_post_pipeline():
         user_answers_map[num] = answer
         print(f"Answer for question {num} received.")
 
-    # Combine selected questions and answers for the brief writer
     user_chosen_question_text = "; ".join([questions_map[num] for num in selected_nums])
     user_answer = "\n".join(
         [f"{questions_map[num]}: {user_answers_map[num]}" for num in selected_nums]
     )
 
     print("\n--- Step 5: Brief Writing ---")
-    brief_writer_agent = agent.create_brief_writer_agent(
+    brief_writer_agent.instructions = get_brief_writer_instructions(
         detailed_analysis, user_chosen_question_text, user_answer
     )
     brief_writer_result = Runner.run_sync(
         starting_agent=brief_writer_agent,
-        input="Generate a brief based on the analysis and user input.",
+        input="Generate a brief based on the analysis and user input, following your instructions.",
     )
 
     if not brief_writer_result or not brief_writer_result.final_output:
@@ -135,10 +146,10 @@ def run_trend_to_post_pipeline():
     print(f"BriefWriter Output (Brief):\n{brief}")
 
     print("\n--- Step 6: LinkedIn Post Generation ---")
-    linkedin_post_generator_agent = agent.create_linkedin_post_generator_agent(brief)
+    linkedin_post_generator_agent.instructions = get_linkedin_post_generator_instructions(brief)
     linkedin_post_result = Runner.run_sync(
         starting_agent=linkedin_post_generator_agent,
-        input="Generate the LinkedIn post from the brief.",
+        input="Generate the LinkedIn post from the brief, adhering to your specific instructions.",
     )
 
     if not linkedin_post_result or not linkedin_post_result.final_output:
@@ -151,6 +162,5 @@ def run_trend_to_post_pipeline():
 
 if __name__ == "__main__":
     set_trace_processors([OpenAIAgentsTracingProcessor()])
-    # Wrap all agent runs under a single root trace
     with trace("Trend to LinkedIn Post Pipeline"):
         run_trend_to_post_pipeline()
