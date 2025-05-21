@@ -44,8 +44,8 @@ Your task is to write a brief instead with 1) the information from the trend ana
 LINKEDIN_POST_GENERATOR_PROMPT_TEMPLATE = """You are a LinkedIn post generation expert. Based on the provided brief:
 {brief}
 
-Write an engaging and professional LinkedIn post.
-That should be a single post suitable for LinkedIn following this template
+Craft a compelling and professional LinkedIn post.
+Ensure it follows the provided template, maintaining both the overall length of the post and the concise structure of each sentence as shown in the example.
 
 TEMPLATE:
 [Opening Hook / Question]
