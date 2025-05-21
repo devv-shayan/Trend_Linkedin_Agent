@@ -1,37 +1,41 @@
 import os
-from agents import function_tool
-from linkup import LinkupClient
+from google import genai
+from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
+from agents import function_tool # Assuming this is from your OpenAI Agent SDK
 from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
 
 
 @function_tool
-def search(query: str) -> str:
+async def search(query: str) -> str:
     """
-    Search for information using the Linkup API.
+    Search for information using the native Gemini API with Google Search grounding.
 
-    This function performs a web search using Linkup's search API to find relevant information
-    based on the provided query.
+    This function queries a Gemini model (via the native Python SDK),
+    instructing it to answer based on information retrieved from Google Search.
+    It attempts to extract and format citation information from the response.
     """
-    linkup_api_key = os.getenv("LINKUP_API_KEY")
-    if not linkup_api_key:
-        raise ValueError(
-            "LINKUP_API_KEY is not set. Please ensure it is defined in your .env file "
-            "for the search tool to work."
-        )
-
-    client = LinkupClient(api_key=linkup_api_key)
+    print(f"Native Gemini search tool invoked with query: '{query}'")
     try:
-        response = client.search(
-            query=query,
-            depth="standard",
-            output_type="sourcedAnswer",
-            include_images=False,
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        model_id = "gemini-2.0-flash"
+
+        google_search_tool = Tool(
+            google_search = GoogleSearch()
         )
-        # Ensuring the response is stringified for consistent output format.
-        return f"Search results for '{query}': {str(response)}"
+
+        response = client.models.generate_content(
+            model=model_id,
+            contents=query,
+            config=GenerateContentConfig(
+                tools=[google_search_tool],
+                response_modalities=["TEXT"],
+            )
+        )
+        return response.candidates[0].content.parts[0].text
     except Exception as e:
-        # Log the exception (in a real app, use proper logging) and return an error message.
-        print(f"Error during Linkup search for query '{query}': {e}")
-        return f"An error occurred while searching for '{query}'. Please try a different query or check the tool configuration." 
+        print(f"Error during Native Gemini grounded search for query '{query}': {e}")
+        import traceback
+        traceback.print_exc()
+        return f"An error occurred while searching with Native Gemini for '{query}'. Details: {str(e)}"
